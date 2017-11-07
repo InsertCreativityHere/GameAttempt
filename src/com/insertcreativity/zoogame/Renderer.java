@@ -17,8 +17,6 @@ import org.lwjgl.opengl.GL20;
 
 public class Renderer
 {
-	/**Map containing the names and handle IDs for all the shaders in use by this renderer.*/
-	private final HashMap<String, Integer> shaders;
 	/**The x coordinate of the camera.*/
 	private float cameraX;
 	/**The y coordinate of the camera.*/
@@ -32,9 +30,11 @@ public class Renderer
 	/**The height of the viewport.*/
 	private int viewportHeight;
 	/**A 4x4 matrix for the camera's viewport projection*/
-	private FloatBuffer viewportProjection;
+	private final FloatBuffer viewportProjection;
+	/**Map containing the names and handle IDs for all the shaders in use by this renderer.*/
+	private final HashMap<String, Integer> shaders;
 	/**Map containing the names and objects for all the textures loaded by this renderer.*/
-	private final HashMap<String, Texture> textures;
+	private static final HashMap<String, Texture> textures = new HashMap<String, Texture>();
 	
 	/**Creates a new Renderer object used for rendering the game and it's content to the screen.
 	 * @param viewWidth The width of the viewport the game is being rendered in.
@@ -44,23 +44,7 @@ public class Renderer
 	 * @param posZ The initial z coordinate of the camera.
 	 * @param zoom The initial zoom level of the camera.*/
 	public Renderer(int viewWidth, int viewHeight, float posX, float posY, float posZ, float zoom) throws IllegalStateException
-	{
-		GL.createCapabilities();//create the context's capabilities
-		GL11.glClearColor(0f, 0f, 0f, 1f);//set the buffer clear color
-		GL11.glEnable(GL11.GL_TEXTURE_2D);//enable 2D texture rendering
-		GL11.glEnable(GL11.GL_BLEND);//enable texture transparency
-		GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);//set the transparency blending function
-		
-		shaders = new HashMap<String, Integer>();//create a new map for storing shaders in
-		
-		try{
-			shaders.put("default", createShader("default.glsl"));//create and store the default shader
-		} catch(IOException ioException){//if the shader source file couldn't be loaded
-			throw new IllegalStateException("GLSL shader file is missing or damaged");
-		}
-		
-		GL20.glUseProgram(shaders.get("default"));//load the default shader into the renderer
-		
+	{		
 		cameraX = posX;//set the camera's initial x coordinate
 		cameraY = posY;//set the camera's initial y coordinate
 		cameraZ = posZ;//set the camera's initial z coordinate
@@ -83,7 +67,33 @@ public class Renderer
 		viewportProjection.put(11, 0);
 		viewportProjection.put(15, 1);
 		
-		textures = new HashMap<String, Texture>();//create a new map for storing textures in
+		GL.createCapabilities();//create the context's capabilities
+		GL11.glClearColor(0f, 0f, 0f, 1f);//set the buffer clear color
+		GL11.glEnable(GL11.GL_TEXTURE_2D);//enable 2D texture rendering
+		GL11.glEnable(GL11.GL_BLEND);//enable texture transparency
+		GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);//set the transparency blending function
+		GL20.glEnableVertexAttribArray(0);//enable a attribute array index for storing vertex coordinates
+		GL20.glEnableVertexAttribArray(1);//enable a attribute array index for storing texture coordinates
+		
+		shaders = new HashMap<String, Integer>();//create a new map for storing shaders in
+		
+		try{
+			shaders.put("default", createShader("default.glsl"));//create and store the default shader
+		} catch(IOException ioException){//if the shader source file couldn't be loaded
+			throw new IllegalStateException("GLSL shader file is missing or damaged");
+		}
+		
+		GL20.glUseProgram(shaders.get("default"));//load the default shader into the renderer
+	}
+	
+	/**Sets the background color.
+	 * @param r The red component of the color.
+	 * @param g The green component of the color.
+	 * @param b The blue component of the color.
+	 * @param a The alpha channel for the background.*/
+	public void setBackground(float r, float g, float b, float a)
+	{
+		GL11.glClearColor(r, g, b, a);//set the buffer clear color
 	}
 	
 	/**Creates a new shader by compiling the provided GLSL file.
@@ -196,19 +206,6 @@ public class Renderer
 		}
 	}
 	
-	//TODO is this needed?
-	/**Sets the value of a uniform variable for the specified shader.
-	 * @param shaderName The name of the shader to set the variable for.
-	 * @param uniform The name of the uniform variable that is being set.
-	 * @param f The value to set the uniform to.*/
-	public void setUniform(String shaderName, String uniform, float f)
-	{
-		int location = GL20.glGetUniformLocation(shaders.get(shaderName), uniform);//get the location of the specified uniform
-		if(location != -1){//if the uniform exists
-			GL20.glUniform1f(location, f);//set the value of the uniform
-		}
-	}
-	
 	/**Sets the value of a uniform variable for the specified shader.
 	 * @param shaderName The name of the shader to set the variable for.
 	 * @param uniform The name of the uniform variable that is being set.
@@ -241,6 +238,7 @@ public class Renderer
 	{
 		cameraX += deltaX;
 		cameraY += deltaY;
+		cameraZ += deltaZ;
 	}
 	
 	/**Sets the position of the camera in the world.
@@ -279,13 +277,14 @@ public class Renderer
 	}
 	
 	/**Loads a texture into the game.
-	 * @param textureName The name of the texture to load.*/
-	public void loadTexture(String textureName)
+	 * @param textureName The name of the texture to load.
+	 * @throws IOException If the texture couldn't be successfully loaded*/
+	public static void loadTexture(String textureName) throws IOException
 	{
 		try{
 			textures.put(textureName, new Texture(textureName));//load and store the texture
-		} catch(IOException ioException){//if the texture couldn't be loaded successfully
-			//TODO
+		} catch(IOException ioException){
+			throw new IOException("Failed to load texture: " + textureName, ioException);
 		}
 	}
 	
@@ -298,27 +297,32 @@ public class Renderer
 		GL11.glBindTexture(GL11.GL_TEXTURE_2D, textures.get(textureName).handle);//bind the texture to the sample
 	}
 	
-	/**Renders an entity.
-	 * @param entity The entity to render in the world. If the entity's bounding box is entirely
-	 *               outside the viewport, the entity isn't rendered. */
-	public void renderEntity(Entity entity)
+	/**Checks whether the specified rectangle overlaps with the viewport.
+	 * @param x1 The x coordinate of the rectangle's upper left point.
+	 * @param y1 The y coordinate of the rectangle's upper left point.
+	 * @param z1 The z coordinate of the rectangle's upper left point.
+	 * @param x2 The x coordinate of the rectangle's lower right point.
+	 * @param y2 The y coordinate of the rectangle's lower right point.
+	 * @param z2 The z coordinate of the rectangle's lower right point.
+	 * @return False if the rectangle is entirely outside the viewport, true otherwise.*/
+	public boolean isWithinViewport(float x1, float y1, float z1, float x2, float y2, float z2)
 	{
-		
+		return true;//TODO make this actually check the thing
 	}
 	
-	private class Texture
+	private static class Texture
 	{
 		/**The handle ID for this texture.*/
-		final int handle;
+		private final int handle;
 		/**The width of this texture.*/
-		final int width;
+		private final int width;
 		/**The height of this texture.*/
-		final int height;
+		private final int height;
 		
 		/**Loads a texture from {textureName}.png into the game. Note the file is resolved from the classpath.
 		 * @param textureName The name of the texture and the file to load it from
 		 * @throws IOException If the texture couldn't be loaded properly.*/
-		Texture(String textureName) throws IOException
+		private Texture(String textureName) throws IOException
 		{
 			BufferedImage bufferedImage = ImageIO.read(getClass().getResourceAsStream(textureName + ".png"));//read the texture's file into a buffered-image
 

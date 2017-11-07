@@ -1,4 +1,3 @@
-//any problems with assuming all 'invoke' calls are meant for just this window?
 //should do any cleanup after destroying window?
 package com.insertcreativity.zoogame;
 
@@ -11,7 +10,7 @@ import org.lwjgl.glfw.GLFWVidMode;
 public class Window implements GLFWWindowSizeCallbackI
 {
 	/**The handle ID for the window.*/
-	private final long handle;
+	public final long handle;
 	/**The width of the window.*/
 	private int windowWidth;
 	/**The height of the window.*/
@@ -22,17 +21,18 @@ public class Window implements GLFWWindowSizeCallbackI
 	private boolean isVsyncEnabled;
 	/**Object that handles input for the window.*/
 	public final InputManager inputManager;
-	/**Object for rendering things to the window.*/
-	public Renderer renderer;
+	/**Reference to the instance of the game.*/
+	protected final Main game;
 	
 	/**Creates a new window with the specified parameters.
+	 * @param main Reference to the game running in this window.
 	 * @param width The width to make the screen. (in pixels)
 	 * @param height The height to make the screen. (in pixels)
 	 * @param title The title to display for the window.
 	 * @param monitor Handle ID for the monitor to display the window on.
 	 * @param fullscreen Flag for whether the window should be fullscreen.
 	 * @throws IllegalStateException If the window couldn't be created successfully.*/
-	public Window(int width, int height, String title, long monitor, boolean fullscreen) throws IllegalStateException
+	public Window(Main main, int width, int height, String title, long monitor, boolean fullscreen) throws IllegalStateException
 	{
 		GLFWVidMode vidMode = GLFW.glfwGetVideoMode(monitor);//load the monitor's video mode and properties
 		
@@ -55,12 +55,8 @@ public class Window implements GLFWWindowSizeCallbackI
 		
 		inputManager = new InputManager();//create an input manager for the window
 		GLFW.glfwSetKeyCallback(handle, inputManager);//set the key event callback
-	}
-	
-	/**Returns the handle ID for this window.*/
-	public long getWindowHandle()
-	{
-		return handle;
+		
+		game = main;//store a reference to the game instance using this window
 	}
 	
 	/**Sets the window's size.
@@ -121,7 +117,7 @@ public class Window implements GLFWWindowSizeCallbackI
 	
 	/**Updates the window.
 	 * @return False if the window was closed, true otherwise.*/
-	public boolean update()
+	protected boolean update()
 	{
 		if(GLFW.glfwWindowShouldClose(handle)){//if the window should be closed
 			GLFW.glfwDestroyWindow(handle);//destroy the window
@@ -135,51 +131,49 @@ public class Window implements GLFWWindowSizeCallbackI
 	}
 	
 	/**Renders the contents of this window.*/
-	public void render()
+	protected void render()
 	{
 		GLFW.glfwSwapBuffers(handle);//swap the window's back buffer with the front
 	}
-	
-	//TODO
+
+	/**Called whenever GLFW detects that the window's size has changed.
+	 * @param window The handle ID of the window that was resized.
+	 * @param width The new width of the window.
+	 * @param height The new height of the window.*/
 	public void invoke(long window, int width, int height)
 	{
 		windowWidth = width;//store the window's new width
 		windowHeight = height;//store the window's new height
 
-		if(renderer != null){//if this window has a renderer
-			renderer.resizeViewport(windowWidth, windowHeight);//update the renderer's viewport
-		}
+		game.onWindowResize(windowWidth, windowHeight);//inform the game that the window was resized
 	}
 	
-	/**Called whenever a key is pressed inside this window.
-	 * @param key The GLFW key-code for the key that was pressed.
-	 * @param scancode The system's key-code for the key that was pressed.
-	 * @param modifiers Bit flags indicating which modifier keys were also being pressed.*/
-	protected void onKeyPress(int key, int scancode, int modifiers)
+	/**Returns whether the specified key is currently held down.
+	 * @param key The GLFW key-code of the key to check.
+	 * @return Whether the specified key is being held down.*/
+	public boolean isKeyDown(int key)
 	{
-		//TODO
+		return (inputManager.keyPressTimes[key] != 0);//return whether the key has been held for more than 0 seconds
 	}
 	
-	/**Called whenever a key is released inside this window.
-	 * @param key The GLFW key-code for the key that was released.
-	 * @param scancode The system's key-code for the key that was released.
-	 * @param modifiers Bit flags indicating which modifier keys were also being pressed.*/
-	protected void onKeyRelease(int key, int scancode, int modifiers)
+	/**Returns how long the specified key has been held down for.
+	 * @param key The GLFW key-code of the key to check.
+	 * @return The number of ticks that the specified key has been pressed for.*/
+	public int getKeyPressTime(int key)
 	{
-		//TODO
+		return inputManager.keyPressTimes[key];
 	}
 	
-	/**Manages all the input for it's parent window.*/
-	protected class InputManager implements GLFWKeyCallbackI
+	/**Manages keyboard input for it's parent window.*/
+	private class InputManager implements GLFWKeyCallbackI
 	{
 		/**Stores the number of ticks that each key has been held for, or 0 for keys not currently being held.*/
 		private final int[] keyPressTimes;
 		
 		/**Creates a new input manager for monitoring key strokes in the window.*/
-		protected InputManager()
+		private InputManager()
 		{
-			//create an array for storing the number of ticks each key has been held for
-			keyPressTimes = new int[GLFW.GLFW_KEY_LAST];
+			keyPressTimes = new int[GLFW.GLFW_KEY_LAST];//create an array for storing the number of ticks each key has been held for
 		}
 
 		/**Called whenever GLFW detects that an action has occurred on a key.
@@ -195,11 +189,11 @@ public class Window implements GLFWWindowSizeCallbackI
 			}
 			if(action == GLFW.GLFW_PRESS){//if the key was pressed
 				keyPressTimes[key] = 1;//set that the key has been held for 1 tick
-				Window.this.onKeyPress(key, scancode, modifiers);//inform the window that the key was pressed
+				Window.this.game.onKeyPress(key, scancode, modifiers);//inform the game that the key was pressed
 			} else
 			if(action == GLFW.GLFW_RELEASE){
 				keyPressTimes[key] = 0;//set that the key is no longer being held
-				Window.this.onKeyRelease(key, scancode, modifiers);//inform the window that the key was released
+				Window.this.game.onKeyRelease(key, scancode, modifiers);//inform the game that the key was released
 			}
 		}
 		
@@ -212,18 +206,10 @@ public class Window implements GLFWWindowSizeCallbackI
 				}
 			}
 		}
-		
-		/**Returns whether the specified key is currently held down.
-		 * @param key The GLFW key-code of the key to check.
-		 * @return Whether the specified key is being held down.*/
-		protected boolean isKeyDown(int key)
-		{
-			return (keyPressTimes[key] != 0);//return whether the key has been held for more than 0 seconds
-		}
 	}
 	
 	/**Initializes the game's window system; this must be called before any windows can be created.*/
-	public static void initialize()
+	protected static void initialize()
 	{
 		if(!GLFW.glfwInit()){//initialize GLFW
 			throw new IllegalStateException("Failed to initialize GLFW");

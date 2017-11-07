@@ -1,5 +1,5 @@
 
-package com.insertcreativity.zoogame;
+package com.insertcreativity.zoogame.entity;
 
 public abstract class Entity
 {
@@ -9,11 +9,10 @@ public abstract class Entity
 	public final float BBx2;
 	public final float BBy1;
 	public final float BBy2;
-	public final String texture;
-	public final Model model;
+	public final String model;
 	private boolean isCollidable;
 	
-	public Entity(float x, float y, float topBB, float rightBB, float bottomBB, float leftBB, String textureName, Model entityModel)
+	public Entity(float x, float y, float topBB, float rightBB, float bottomBB, float leftBB, String modelName)
 	{
 		posX = x;
 		posY = y;
@@ -21,8 +20,7 @@ public abstract class Entity
 		BBx2 = rightBB;
 		BBy1 = bottomBB;
 		BBx1 = leftBB;
-		texture = textureName;
-		model = entityModel;
+		model = modelName;
 		isCollidable = true;
 	}
 	
@@ -58,10 +56,5 @@ public abstract class Entity
 	public boolean checkCollision(float x1, float y1, float x2, float y2)
 	{
 		return !(((BBx2 + posX) < x1) || ((BBx1 + posX) > x2) || ((BBy2 + posY) < y1) || ((BBy1 + posY) > y2));
-	}
-	
-	public void render(Renderer renderer)
-	{
-		
 	}
 }
