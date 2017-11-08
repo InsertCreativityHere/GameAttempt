@@ -2,8 +2,11 @@
 package com.insertcreativity.zoogame;
 
 import org.lwjgl.glfw.GLFW;
+import org.lwjgl.glfw.GLFWCursorPosCallbackI;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.glfw.GLFWKeyCallbackI;
+import org.lwjgl.glfw.GLFWMouseButtonCallbackI;
+import org.lwjgl.glfw.GLFWScrollCallbackI;
 import org.lwjgl.glfw.GLFWWindowSizeCallbackI;
 import org.lwjgl.glfw.GLFWVidMode;
 
@@ -19,8 +22,14 @@ public class Window implements GLFWWindowSizeCallbackI
 	private boolean isFullscreen;
 	/**Flag for whether Vsync is enabled.*/
 	private boolean isVsyncEnabled;
-	/**Object that handles input for the window.*/
-	public final InputManager inputManager;
+	/**Object that handles keyboard input for the window.*/
+	private final KeyManager keyManager;
+	/**Object that handles mouse input for the window.*/
+	private final MouseManager mouseManager;
+	/**Object that handles scroll wheel input for the window.*/
+	private final ScrollManager scrollManager;
+	/**Object that tracks the mouse cursor for the window.*/
+	private final CursorManager cursorManager;
 	/**Reference to the instance of the game.*/
 	protected final Main game;
 	
@@ -53,8 +62,14 @@ public class Window implements GLFWWindowSizeCallbackI
 		GLFW.glfwSwapInterval(1);//enable Vsync
 		isVsyncEnabled = true;//set that Vsync is enabled by default
 		
-		inputManager = new InputManager();//create an input manager for the window
-		GLFW.glfwSetKeyCallback(handle, inputManager);//set the key event callback
+		keyManager = new KeyManager();//create a key manager for the window
+		GLFW.glfwSetKeyCallback(handle, keyManager);//set the key event callback
+		mouseManager = new MouseManager();//create a mouse manager for the window
+		GLFW.glfwSetMouseButtonCallback(handle, mouseManager);//set the mouse manager callback
+		scrollManager = new ScrollManager();//create a new scroll manager for the window
+		GLFW.glfwSetScrollCallback(handle, scrollManager);//set the scroll callback
+		cursorManager = new CursorManager();//create a cursor manager for the window
+		GLFW.glfwSetCursorPosCallback(handle, cursorManager);//set the cursor position callback
 		
 		game = main;//store a reference to the game instance using this window
 	}
@@ -124,7 +139,8 @@ public class Window implements GLFWWindowSizeCallbackI
 			return false;//return that the window was closed
 		}
 		
-		inputManager.update();//update the input manager
+		keyManager.update();//update the key manager
+		mouseManager.update();//update the mouse manager
 		GLFW.glfwPollEvents();//process any received events
 		
 		return true;//return that execution should continue normally
@@ -150,10 +166,10 @@ public class Window implements GLFWWindowSizeCallbackI
 	
 	/**Returns whether the specified key is currently held down.
 	 * @param key The GLFW key-code of the key to check.
-	 * @return Whether the specified key is being held down.*/
+	 * @return True if the key is currently being pressed, false otherwise.*/
 	public boolean isKeyDown(int key)
 	{
-		return (inputManager.keyPressTimes[key] != 0);//return whether the key has been held for more than 0 seconds
+		return (keyManager.keyPressTimes[key] != 0);//return whether the key has been held for more than 0 seconds
 	}
 	
 	/**Returns how long the specified key has been held down for.
@@ -161,27 +177,57 @@ public class Window implements GLFWWindowSizeCallbackI
 	 * @return The number of ticks that the specified key has been pressed for.*/
 	public int getKeyPressTime(int key)
 	{
-		return inputManager.keyPressTimes[key];
+		return keyManager.keyPressTimes[key];
+	}
+	
+	/**Returns whether the specified button is currently held down.
+	 * @param button The GLFW button-code of the button to check.
+	 * @return True if the button is currently being pressed, false otherwise.*/
+	public boolean isButtonDown(int button)
+	{
+		return (mouseManager.mousePressTimes[button] != 0);//return whether the button has been held for more than 0 seconds
+	}
+	
+	/**Returns how long the specified button has been held down for.
+	 * @param button The GLFW button-code of the button to check.
+	 * @return The number of ticks that the specified button has been pressed for.*/
+	public int getButtonPressTime(int button)
+	{
+		return mouseManager.mousePressTimes[button];
+	}
+	
+	/**Returns the cursor's current x position in the window.
+	 * @return The x coordinate of the cursor.*/
+	public double getMouseX()
+	{
+		return cursorManager.posX;
+	}
+	
+	/**Returns the cursor's current y position in the window.
+	 * @return The y coordinate of the cursor.*/
+	public double getMouseY()
+	{
+		return cursorManager.posY;
 	}
 	
 	/**Manages keyboard input for it's parent window.*/
-	private class InputManager implements GLFWKeyCallbackI
+	private class KeyManager implements GLFWKeyCallbackI
 	{
 		/**Stores the number of ticks that each key has been held for, or 0 for keys not currently being held.*/
 		private final int[] keyPressTimes;
 		
-		/**Creates a new input manager for monitoring key strokes in the window.*/
-		private InputManager()
+		/**Creates a new manager for monitoring key strokes in the window.*/
+		private KeyManager()
 		{
 			keyPressTimes = new int[GLFW.GLFW_KEY_LAST];//create an array for storing the number of ticks each key has been held for
 		}
-
+		
 		/**Called whenever GLFW detects that an action has occurred on a key.
 		 * @param window The handle ID of the window that the action occurred in.
 		 * @param key The GLFW key-code for the key.
 		 * @param scancode The system's key-code for the key.
 		 * @param action The action that was performed on the key.
-		 * @param modifiers Bit flags indicating which modifier keys were also being pressed during the action.*/
+		 * @param modifiers Bit flags indicating which modifier keys were being pressed during the action.*/
 		public void invoke(long window, int key, int scancode, int action, int modifiers)
 		{
 			if(key == GLFW.GLFW_KEY_UNKNOWN){//if an unknown key was pressed
@@ -191,7 +237,7 @@ public class Window implements GLFWWindowSizeCallbackI
 				keyPressTimes[key] = 1;//set that the key has been held for 1 tick
 				Window.this.game.onKeyPress(key, scancode, modifiers);//inform the game that the key was pressed
 			} else
-			if(action == GLFW.GLFW_RELEASE){
+			if(action == GLFW.GLFW_RELEASE){//if the key was released
 				keyPressTimes[key] = 0;//set that the key is no longer being held
 				Window.this.game.onKeyRelease(key, scancode, modifiers);//inform the game that the key was released
 			}
@@ -205,6 +251,86 @@ public class Window implements GLFWWindowSizeCallbackI
 					keyPressTime++;//increment how many ticks the key has been held for
 				}
 			}
+		}
+	}
+	
+	/**Manages mouse input for it's parent window.*/
+	private class MouseManager implements GLFWMouseButtonCallbackI
+	{
+		/**Stores the number of ticks that each mouse button has been held for, or 0 for buttons not currently being held.*/
+		private final int[] mousePressTimes;
+		
+		/**Creates a new manager for monitoring mouse button presses in the window.*/
+		private MouseManager()
+		{
+			mousePressTimes = new int[GLFW.GLFW_MOUSE_BUTTON_LAST];//create an array for storing the number of ticks each button has been held for
+		}
+		
+		/**Called whenever GLFW detects that an action has occurred on a mouse button.
+		 * @param window The handle ID of the window that the action occurred in.
+		 * @param button The GLFW button-code for the button.
+		 * @param scancode The system's button-code for the button.
+		 * @param action The action that was performed on the button.
+		 * @param modifiers Bit flags indicating which modifier keys were being pressed during the action.*/
+		public void invoke(long window, int button, int action, int mods)
+		{
+			if(action == GLFW.GLFW_PRESS){//if the button was pressed
+				mousePressTimes[button] = 1;//set that the button has been held for 1 tick
+				Window.this.game.onButtonPress(button, mods);//inform the game that the button was pressed
+			} else
+			if(action == GLFW.GLFW_RELEASE){//if the button was released
+				mousePressTimes[button] = 0;//set that the button is no longer being held
+				Window.this.game.onButtonRelease(button, mods);//inform the game that the button was released
+			}
+		}
+		
+		/**Updates the number of ticks each button has been held for*/
+		protected void update()
+		{
+			for(int mousePressTime : mousePressTimes){//iterate through all the buttons
+				if(mousePressTime != 0){//if the button is being pressed
+					mousePressTime++;//increment how many ticks the button has been held for
+				}
+			}
+		}
+	}
+	
+	/**Manages scroll wheel input for it's parent window*/
+	private class ScrollManager implements GLFWScrollCallbackI
+	{
+		/**Creates a new scroll manager for monitoring scrolling in the window.*/
+		private ScrollManager(){}
+
+		/**Called whenever GLFW detects that the scroll wheel has been moved.
+		 * @param window The handle ID of the window that the wheel was scrolled in.
+		 * @param xoffset The amount that the wheel was scrolled in the x direction.
+		 * @param yoffset The amount that the wheel was scrolled in the y direction.*/
+		public void invoke(long window, double xoffset, double yoffset)
+		{
+			Window.this.game.onMouseScrolled(xoffset, yoffset);//inform the game that the scroll wheel was scrolled
+		}
+	}
+	
+	/**Tracks and stores the position of the mouse cursor through the window.*/
+	private class CursorManager implements GLFWCursorPosCallbackI
+	{
+		/**The current x coordinate of the cursor in the window.*/
+		private double posX;
+		/**The current y coordinate of the cursor in the window.*/
+		private double posY;
+		
+		/**Creates a new manager for tracking the cursor's position in the window.*/
+		private CursorManager(){}
+
+		/**Called whenever GLFW detects that the cursor has been moved.
+		 * @param window The handle ID of the window that the cursor was moved in.
+		 * @param xpos The x coordinate of the cursor's new position.
+		 * @param ypos The y coordinate of the cursor's new position.*/
+		public void invoke(long window, double xpos, double ypos)
+		{
+			posX = xpos;//update the x position
+			posY = ypos;//update the y position
+			Window.this.game.onCursorMove(posX, posY);//inform the game that the cursor was moved
 		}
 	}
 	

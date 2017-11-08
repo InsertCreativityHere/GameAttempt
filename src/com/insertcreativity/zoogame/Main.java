@@ -82,6 +82,38 @@ public class Main implements Runnable
 		screen.keyReleased(key, scancode, modifiers);//notify the current screen that a key was released
 	}
 	
+	/**Called whenever a button is pressed inside the game's window.
+	 * @param button The GLFW button-code for the button that was pressed.
+	 * @param modifiers Bit flags indicating which modifier keys were also being pressed.*/
+	protected void onButtonPress(int button, int modifiers)
+	{
+		screen.buttonPressed(button, modifiers);//notify the current screen that a button was pressed
+	}
+	
+	/**Called whenever a button is released inside the game's window.
+	 * @param button The GLFW button-code for the button that was released.
+	 * @param modifiers Bit flags indicating which modifier keys were also being pressed.*/
+	protected void onButtonRelease(int button, int modifiers)
+	{
+		screen.buttonReleased(button, modifiers);//notify the current screen that a button was released
+	}
+	
+	/**Called whenever the scroll wheel is scrolled inside the game's window.
+	 * @param x The amount that the scroll wheel was moved in the x direction.
+	 * @param y The amount that the scroll wheel was moved in the y direction.*/
+	protected void onMouseScrolled(double x, double y)
+	{
+		screen.mouseScrolled(x, y);//notify the current screen that the scroll wheel was scrolled
+	}
+	
+	/**Called whenever the cursor is moved inside the game's window.
+	 * @param x The new x coordinate of the cursor.
+	 * @param y The new y coordinate of the cursor.*/
+	protected void onCursorMove(double x, double y)
+	{
+		screen.cursorMoved(x, y);//notify the current screen that the cursor was moved
+	}
+	
 	public static void main(String[] args)
 	{
 		Runtime.getRuntime().addShutdownHook(new Thread("Game Shutdown Hook"){//add a shutdown hook to cleanup
