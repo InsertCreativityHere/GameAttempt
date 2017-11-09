@@ -324,7 +324,7 @@ public class Renderer
 		 * @throws IOException If the texture couldn't be loaded properly.*/
 		private Texture(String textureName) throws IOException
 		{
-			BufferedImage bufferedImage = ImageIO.read(getClass().getResourceAsStream(textureName + ".png"));//read the texture's file into a buffered-image
+			BufferedImage bufferedImage = ImageIO.read(getClass().getResourceAsStream("/res/" + textureName + ".png"));//read the texture's file into a buffered-image
 
 			width = bufferedImage.getWidth();//store the width of this texture
 			height = bufferedImage.getHeight();//store the height of this texture
