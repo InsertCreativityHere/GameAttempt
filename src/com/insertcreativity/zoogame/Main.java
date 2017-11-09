@@ -2,6 +2,8 @@
 //add delete and clear methods for renderer/shader/model?
 package com.insertcreativity.zoogame;
 
+import java.io.IOException;
+
 import org.lwjgl.glfw.GLFW;
 import com.insertcreativity.zoogame.menu.MainMenu;
 
@@ -25,8 +27,15 @@ public class Main implements Runnable
 	{
 		Window.initialize();//initialize the window system
 		window = new Window(this, windowWidth, windowHeight, "Zoo Game!", GLFW.glfwGetPrimaryMonitor(), false);//create the game's window
-		renderer = new Renderer(windowWidth, windowHeight, 0, 0, 0, 64f);//create a new renderer for the game
 		FPS = preferredFPS;//set the FPS that the game should run at
+		
+		renderer = new Renderer(windowWidth, windowHeight, 0, 0, 0, 64f);//create a new renderer for the game
+		try{
+			renderer.createShader("default", "default.glsl");//create the default shader
+		} catch(IOException ioException){//if the shader source file couldn't be loaded
+			throw new IllegalStateException("GLSL shader file is missing or damaged");
+		}
+		renderer.bindShader("default");//load the default shader into the renderer
 		
 		screen = new MainMenu();//create the main menu and set it as the game's current screen
 		

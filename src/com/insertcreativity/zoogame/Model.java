@@ -28,6 +28,16 @@ public class Model
 	/**Map containing the name and model object for every model currently in use by the renderer.*/
 	private static final HashMap<String, Model> models = new HashMap<String, Model>();
 	
+	public static Model createModel(String name, float[] vertexArray, float[] textureArray, int[] indexArray, float xOff, float yOff, float zOff)
+	{
+		if(!models.containsKey(name)){//if this model doesn't already exist
+			Model model = new Model(name, vertexArray, textureArray, indexArray, xOff, yOff, zOff);//create a new model
+			models.put(name, model);//add the model to the model list
+		}
+		
+		return getModel(name);//return the model with the specified name
+	}
+	
 	/**Creates a new model.
 	 * @param name The name of this model.
 	 * @param vertexArray Array of all the vertex coordinates for the model formatted as {x1, y1, x2, y2, ...}.
@@ -36,7 +46,7 @@ public class Model
 	 * @param xOff The offset to render the model at in the x direction.
 	 * @param yOff The offset to render the model at in the y direction.
 	 * @param zOff The offset to render the model at in the z direction.*/
-	public Model(String name, float[] vertexArray, float[] textureArray, int[] indexArray, float xOff, float yOff, float zOff)
+	private Model(String name, float[] vertexArray, float[] textureArray, int[] indexArray, float xOff, float yOff, float zOff)
 	{
 		FloatBuffer vertexBuffer = BufferUtils.createFloatBuffer(vertexArray.length);//allocate a buffer for the vertex array
 		vertexBuffer.put(vertexArray);//load the vertex array into the vertex coordinate buffer
@@ -63,8 +73,6 @@ public class Model
 		offsetX = xOff;//store the x offset of this model
 		offsetY = yOff;//store the y offset of this model
 		offsetZ = zOff;//store the z offset of this model
-		
-		models.put(name, this);//add this model to the model list
 	}
 	
 	/**Returns the model object corresponding to the provided name

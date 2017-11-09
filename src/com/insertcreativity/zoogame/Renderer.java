@@ -76,14 +76,6 @@ public class Renderer
 		GL20.glEnableVertexAttribArray(1);//enable a attribute array index for storing texture coordinates
 		
 		shaders = new HashMap<String, Integer>();//create a new map for storing shaders in
-		
-		try{
-			shaders.put("default", createShader("default.glsl"));//create and store the default shader
-		} catch(IOException ioException){//if the shader source file couldn't be loaded
-			throw new IllegalStateException("GLSL shader file is missing or damaged");
-		}
-		
-		GL20.glUseProgram(shaders.get("default"));//load the default shader into the renderer
 	}
 	
 	/**Sets the background color.
@@ -97,15 +89,20 @@ public class Renderer
 	}
 	
 	/**Creates a new shader by compiling the provided GLSL file.
-	 * @param shaderSourceFile File containing the GLSL source code to compile into the shader.
+	 * @param shaderName The name to store this shader under in the shader map.
+	 * @param shaderSource Name of the file containing the GLSL source code to compile into the shader.
 	 * @throws IllegalStateException If the shader couldn't be compiled or loaded correctly.
 	 * @throws IOException If the shader source code couldn't be loaded successfully.*/
-	public int createShader(String shaderSource) throws IllegalStateException, IOException
+	public void createShader(String shaderName, String shaderSource) throws IllegalStateException, IOException
 	{
+		if(shaders.containsKey(shaderName)){//if this shader has already been created
+			return;//do nothing
+		}
+		
 		StringBuilder vertexShaderSource = new StringBuilder();//create a string-builder for storing the vertex shader source code
 		StringBuilder fragmentShaderSource = new StringBuilder();//create a string-builder for storing the fragment shader source code
 
-		try(BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(getClass().getResourceAsStream(shaderSource), "UTF-8"))){//open the GLSL source file
+		try(BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(getClass().getResourceAsStream("/shaders/" + shaderSource), "UTF-8"))){//open the GLSL source file
 			String line = bufferedReader.readLine();//read the first line of the shader source code
 			while(line != null){//continues reading from the file until EOF is reached
 				if(line.equals("//<vertex>")){//if the following lines are vertex source code
@@ -138,16 +135,20 @@ public class Renderer
 			}
 		}
 		
-		return createShader(vertexShaderSource.toString(), fragmentShaderSource.toString());//load and compile the shader from the loaded source
+		createShader(shaderName, vertexShaderSource.toString(), fragmentShaderSource.toString());//load and compile the shader from the loaded source
 	}
 		
 	/**Creates a new shader by compiling the provided strings as GLSL source code
+	 * @param shaderName The name to store this shader under in the shader map.
 	 * @param vertexShaderSource String containing GLSL source code to compile into the vertex shader.
 	 * @param fragmentShaderSource String containing GLSL source code to compile into the fragment shader.
-	 * @param The handle ID for the created shader
 	 * @throws IllegalStateException If the shader couldn't be compiled or loaded correctly.*/
-	public int createShader(String vertexShaderSource, String fragmentShaderSource) throws IllegalStateException
+	public void createShader(String shaderName, String vertexShaderSource, String fragmentShaderSource) throws IllegalStateException
 	{
+		if(shaders.containsKey(shaderName)){//if this shader has already been created
+			return;//do nothing
+		}
+		
 		int handle = GL20.glCreateProgram();//create a new shader program
 		
 		int vs = GL20.glCreateShader(GL20.GL_VERTEX_SHADER);//create a vertex shader
@@ -184,7 +185,7 @@ public class Renderer
 		GL20.glDeleteShader(vs);//delete the vertex shader
 		GL20.glDeleteShader(fs);//delete the fragment shader
 		
-		return handle;//return the shader's handle ID
+		shaders.put(shaderName, handle);//add the shader's name and handle to the shader map
 	}
 	
 	/**Binds the specified shader for use.
